@@ -89,7 +89,7 @@ window.onload = function() {
         var lines = [];
         lines.push("```");
 
-        lines.push(moment(this.date).format("dddd"));
+        lines.push(moment(this.date).format("dddd")+":");
 
         Object.keys(this.groups).forEach(function(key) {
           var seconds = app.groups[key];
@@ -104,7 +104,7 @@ window.onload = function() {
         });
 
         lines.push("");
-        lines.push(moment(this.nextDate()).format("dddd"));
+        lines.push(moment(this.nextDate()).format("dddd")+":");
         var todayLines = this.today.split("\n");
         for (var i = 0; i < todayLines.length; i++) {
           lines.push("- " + todayLines[i]);
