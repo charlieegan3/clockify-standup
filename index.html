@@ -1,139 +1,147 @@
 <html>
-	<head>
-		<meta charset="UTF-8">
-		<meta name="viewport" content="width=device-width, initial-scale=1">
-		<script src="https://cdn.jsdelivr.net/npm/vue/dist/vue.js"></script>
-		<script src="https://unpkg.com/vue-router/dist/vue-router.js"></script>
-		<script src="https://unpkg.com/axios/dist/axios.min.js"></script>
-		<script src="https://cdnjs.cloudflare.com/ajax/libs/moment.js/2.24.0/moment.min.js"></script>
-		<script src="https://cdnjs.cloudflare.com/ajax/libs/vuejs-datepicker/1.5.4/vuejs-datepicker.min.js"></script>
-		<script src="https://cdn.jsdelivr.net/npm/clipboard@2/dist/clipboard.min.js"></script>
-		<script>
-var apiKey = "$API_KEY";
-var workspaceID = "$WORKSPACE"
-var userID = "$USER"
-window.onload = function() {
-  new ClipboardJS('#clip');
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <script src="https://cdn.jsdelivr.net/npm/vue/dist/vue.js"></script>
+  <script src="https://unpkg.com/vue-router/dist/vue-router.js"></script>
+  <script src="https://unpkg.com/axios/dist/axios.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/moment.js/2.24.0/moment.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/vuejs-datepicker/1.5.4/vuejs-datepicker.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/clipboard@2/dist/clipboard.min.js"></script>
+  <script>
+    window.onload = function() {
+      new ClipboardJS('#clip');
 
-  const axiosClient = axios.create({
-    baseURL: 'https://api.clockify.me/api',
-    timeout: 2000,
-    headers: {
-      'X-Api-Key': apiKey
-    }
-  });
-
-  var app = new Vue({
-    el: '#app',
-    data: {
-      today: "",
-      entries: [],
-      date: new Date()
-    },
-    methods: {
-      lastDate: function() {
-        if (moment(this.date).format("dddd") == "Monday") {
-          return moment(this.date).subtract(3, 'days').toDate();
-        }
-        return moment(this.date).subtract(0, 'days').toDate();
-      },
-      nextDate: function() {
-        if (moment(this.date).format("dddd") == "Friday") {
-          return moment(this.date).add(3, 'days').toDate();
-        }
-        return moment(this.date).add(1, 'days').toDate();
-      },
-      initDate: function() {
-        this.date = this.lastDate()
-      },
-      changeDate: function(change) {
-        this.date = moment(this.date).add(change, "days").toDate();
-      },
-      updateEntries: function() {
-        axiosClient({
-            method: "post",
-            url: '/workspaces/' + workspaceID + '/timeEntries/user/' + userID + '/entriesInRange',
-            data: {
-              "start": moment(this.date).startOf('day'),
-              "end": moment(this.date).endOf('day')
+      var config = {};
+      axios.get('/data/config.json')
+        .then(function(response) {
+          var axiosClient = axios.create({
+            baseURL: 'https://api.clockify.me/api',
+            timeout: 2000,
+            headers: {
+              'X-Api-Key': response.data.apiKey
             }
-          })
-          .then(function(response) {
-            app.entries = response.data;
-          })
-          .catch(function(error) {
-            console.log(error);
-          })
-      }
-    },
-    watch: {
-      date: function() {
-        this.updateEntries()
-      }
-    },
-    computed: {
-      groups: function() {
-        var groups = {};
-        for (var i = 0; i < this.entries.length; i++) {
-          var e = this.entries[i];
-          var key = e.project.name + ": " + e.description;
-
-          if (groups[key] === undefined)
-            groups[key] = 0;
-
-          groups[key] += moment(e.timeInterval.end).diff(moment(e.timeInterval.start), 'seconds')
-        }
-        return groups
-      },
-      lines: function() {
-        var lines = [];
-        lines.push("```");
-
-        lines.push(moment(this.date).format("dddd")+":");
-
-        Object.keys(this.groups).forEach(function(key) {
-          var seconds = app.groups[key];
-          if (seconds < 37) // less than 0.01
-            return
-          var line = "- ";
-          line += "[";
-          line += +(Math.round((seconds / 60 / 60) + "e+2") + "e-2")
-          line += "] ";
-          line += key;
-          lines.push(line)
+          });
+          initApp(axiosClient, response.data);
+        })
+        .catch(function(error) {
+          console.log(error)
         });
 
-        lines.push("");
-        lines.push(moment(this.nextDate()).format("dddd")+":");
-        var todayLines = this.today.split("\n");
-        for (var i = 0; i < todayLines.length; i++) {
-          lines.push("- " + todayLines[i]);
-        }
-        lines.push("```");
-        return lines
-      },
-    },
-    components: {
-      vuejsDatepicker
-    },
-    created() {
-      this.initDate()
-      this.updateEntries()
-    }
-  })
-}
-		</script>
-		<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/tachyons/4.11.1/tachyons.min.css" />
-	</head>
+      function initApp(axiosClient, config) {
+        var app = new Vue({
+          el: '#app',
+          data: {
+            today: "",
+            entries: [],
+            date: new Date()
+          },
+          methods: {
+            lastDate: function() {
+              if (moment(this.date).format("dddd") == "Monday") {
+                return moment(this.date).subtract(3, 'days').toDate();
+              }
+              return moment(this.date).subtract(0, 'days').toDate();
+            },
+            nextDate: function() {
+              if (moment(this.date).format("dddd") == "Friday") {
+                return moment(this.date).add(3, 'days').toDate();
+              }
+              return moment(this.date).add(1, 'days').toDate();
+            },
+            initDate: function() {
+              this.date = this.lastDate()
+            },
+            changeDate: function(change) {
+              this.date = moment(this.date).add(change, "days").toDate();
+            },
+            updateEntries: function() {
+              axiosClient({
+                  method: "post",
+                  url: "/workspaces/" + config.workspaceID + "/timeEntries/user/" + config.userID + "/entriesInRange",
+                  data: {
+                    "start": moment(this.date).startOf('day'),
+                    "end": moment(this.date).endOf('day')
+                  }
+                })
+                .then(function(response) {
+                  app.entries = response.data;
+                })
+                .catch(function(error) {
+                  console.log(error);
+                })
+            }
+          },
+          watch: {
+            date: function() {
+              this.updateEntries()
+            }
+          },
+          computed: {
+            groups: function() {
+              var groups = {};
+              for (var i = 0; i < this.entries.length; i++) {
+                var e = this.entries[i];
+                var key = e.project.name + ": " + e.description;
 
-	<body>
-		<div id="app" class="pa2">
-			<button v-on:click="changeDate(-1)">&lt;&lt;</button>
-			<vuejs-datepicker class="dib mb2" v-model="date"></vuejs-datepicker>
-			<button v-on:click="changeDate(1)">&gt;&gt;</button>
-			<textarea class="w-100 mv2" v-model="today" :rows="today.split(/\r\n|\r|\n/).length"></textarea>
-			<button class="w-100 mb2" id="clip" data-clipboard-target="#standup">Copy</button>
-			<textarea id="standup" class="w-100" :rows="lines.length + 1">{{ lines.join("\n")}}</textarea>
-		</div>
-	</body>
+                if (groups[key] === undefined)
+                  groups[key] = 0;
+
+                groups[key] += moment(e.timeInterval.end).diff(moment(e.timeInterval.start), 'seconds')
+              }
+              return groups
+            },
+            lines: function() {
+              var lines = [];
+              lines.push("```");
+
+              lines.push(moment(this.date).format("dddd") + ":");
+
+              Object.keys(this.groups).forEach(function(key) {
+                var seconds = app.groups[key];
+                if (seconds < 37) // less than 0.01
+                  return
+                var line = "- ";
+                line += "[";
+                line += +(Math.round((seconds / 60 / 60) + "e+2") + "e-2")
+                line += "] ";
+                line += key;
+                lines.push(line)
+              });
+
+              lines.push("");
+              lines.push(moment(this.nextDate()).format("dddd") + ":");
+              var todayLines = this.today.split("\n");
+              for (var i = 0; i < todayLines.length; i++) {
+                lines.push("- " + todayLines[i]);
+              }
+              lines.push("```");
+              return lines
+            },
+          },
+          components: {
+            vuejsDatepicker
+          },
+          created() {
+            this.initDate()
+            this.updateEntries()
+          }
+        })
+      }
+    }
+  </script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/tachyons/4.11.1/tachyons.min.css" />
+</head>
+
+<body>
+  <div id="app" class="pa2">
+    <button v-on:click="changeDate(-1)">&lt;&lt;</button>
+    <vuejs-datepicker class="dib mb2" v-model="date"></vuejs-datepicker>
+    <button v-on:click="changeDate(1)">&gt;&gt;</button>
+    <textarea class="w-100 mv2" v-model="today" :rows="today.split(/\r\n|\r|\n/).length"></textarea>
+    <button class="w-100 mb2" id="clip" data-clipboard-target="#standup">Copy</button>
+    <textarea id="standup" class="w-100" :rows="lines.length + 1">{{ lines.join("\n")}}</textarea>
+  </div>
+</body>
+
 </html>

@@ -1,6 +1,3 @@
-FROM bhgedigital/envsubst
+FROM nginx:1.13-alpine
 
-COPY index.html /data/index.html
-
-ENTRYPOINT ["/bin/sh", "-c"]
-CMD ["envsubst < /data/index.html > /output/index.html"]
+COPY index.html /usr/share/nginx/html/index.html
