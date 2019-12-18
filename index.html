@@ -4,131 +4,156 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <script src="https://cdn.jsdelivr.net/npm/vue/dist/vue.js"></script>
   <script src="https://unpkg.com/vue-router/dist/vue-router.js"></script>
-  <script src="https://unpkg.com/axios/dist/axios.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/axios/0.19.0/axios.min.js" integrity="sha256-S1J4GVHHDMiirir9qsXWc8ZWw74PHHafpsHp5PXtjTs=" crossorigin="anonymous"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/moment.js/2.24.0/moment.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/vuejs-datepicker/1.5.4/vuejs-datepicker.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/clipboard@2/dist/clipboard.min.js"></script>
   <script>
-    window.onload = function() {
-      new ClipboardJS('#clip');
+window.onload = function() {
+	new ClipboardJS('#clip');
 
-      var config = {};
-      axios.get('/data/config.json')
-        .then(function(response) {
-          var axiosClient = axios.create({
-            baseURL: 'https://api.clockify.me/api',
-            timeout: 2000,
-            headers: {
-              'X-Api-Key': response.data.apiKey
-            }
-          });
-          initApp(axiosClient, response.data);
-        })
-        .catch(function(error) {
-          console.log(error)
-        });
+	var config = {};
+	axios.get('/data/config.json')
+		.then(function(response) {
+			var axiosClient = axios.create({
+				baseURL: 'https://api.clockify.me/api/v1',
+				timeout: 2000,
+				headers: {
+					'X-Api-Key': response.data.apiKey
+				}
+			});
+			initApp(axiosClient, response.data);
+		})
+		.catch(function(error) {
+			console.log(error)
+		});
 
-      function initApp(axiosClient, config) {
-        var app = new Vue({
-          el: '#app',
-          data: {
-            today: "",
-            entries: [],
-            date: new Date()
-          },
-          methods: {
-            lastDate: function() {
-              if (moment(this.date).format("dddd") == "Monday") {
-                return moment(this.date).subtract(3, 'days').toDate();
-              }
-              return moment(this.date).subtract(0, 'days').toDate();
-            },
-            nextDate: function() {
-              if (moment(this.date).format("dddd") == "Friday") {
-                return moment(this.date).add(3, 'days').toDate();
-              }
-              return moment(this.date).add(1, 'days').toDate();
-            },
-            initDate: function() {
-              this.date = this.lastDate()
-            },
-            changeDate: function(change) {
-              this.date = moment(this.date).add(change, "days").toDate();
-            },
-            updateEntries: function() {
-              axiosClient({
-                  method: "post",
-                  url: "/workspaces/" + config.workspaceID + "/timeEntries/user/" + config.userID + "/entriesInRange",
-                  data: {
-                    "start": moment(this.date).startOf('day'),
-                    "end": moment(this.date).endOf('day')
-                  }
-                })
-                .then(function(response) {
-                  app.entries = response.data;
-                })
-                .catch(function(error) {
-                  console.log(error);
-                })
-            }
-          },
-          watch: {
-            date: function() {
-              this.updateEntries()
-            }
-          },
-          computed: {
-            groups: function() {
-              var groups = {};
-              for (var i = 0; i < this.entries.length; i++) {
-                var e = this.entries[i];
-                var key = e.project.name + ": " + e.description;
+	function initApp(axiosClient, config) {
+		var app = new Vue({
+			el: '#app',
+			data: {
+				today: "",
+				entries: [],
+				projects: {},
+				date: new Date()
+			},
+			methods: {
+				lastDate: function() {
+					if (moment(this.date).format("dddd") == "Monday") {
+						return moment(this.date).subtract(3, 'days').toDate();
+					}
+					return moment(this.date).subtract(0, 'days').toDate();
+				},
+				nextDate: function() {
+					if (moment(this.date).format("dddd") == "Friday") {
+						return moment(this.date).add(3, 'days').toDate();
+					}
+					return moment(this.date).add(1, 'days').toDate();
+				},
+				initDate: function() {
+					this.date = this.lastDate()
+				},
+				changeDate: function(change) {
+					this.date = moment(this.date).add(change, "days").toDate();
+				},
+				updateEntries: function() {
+					axiosClient({
+							url: "/workspaces/" + config.workspaceID + "/user/" + config.userID + "/time-entries",
+							params: {
+								"start": moment(this.date).startOf('day'),
+								"end": moment(this.date).endOf('day')
+							},
+							paramsSerializer: function(params) {
+								return 'start=' + params.start.toISOString() + '&end=' + params.end.toISOString();
+							}
+						})
+						.then(function(response) {
+							app.entries = response.data;
+						})
+						.catch(function(error) {
+							console.log(error);
+						})
+				},
+				loadProjects: function() {
+					axiosClient({
+							url: "/workspaces/" + config.workspaceID + "/projects/"
+						})
+						.then(function(response) {
+							for (var i = 0; i < response.data.length; i++) {
+								var p = response.data[i];
+								app.projects[p.id] = p.name;
+							}
+						})
+						.catch(function(error) {
+							console.log(error);
+						})
+				},
+				getProjectName: function(projectId) {
+					if (this.projects[projectId] == undefined) {
+						return "Unkown"
+					} {
+						return this.projects[projectId];
+					}
+				}
+			},
+			watch: {
+				date: function() {
+					this.updateEntries()
+				}
+			},
+			computed: {
+				groups: function() {
+					var groups = {};
+					for (var i = 0; i < this.entries.length; i++) {
+						var e = this.entries[i];
+						var key = this.projects[e.projectId] + ": " + e.description;
 
-                if (groups[key] === undefined)
-                  groups[key] = 0;
+						if (groups[key] === undefined)
+							groups[key] = 0;
 
-                groups[key] += moment(e.timeInterval.end).diff(moment(e.timeInterval.start), 'seconds')
-              }
-              return groups
-            },
-            lines: function() {
-              var lines = [];
-              lines.push("```");
+						groups[key] += moment(e.timeInterval.end).diff(moment(e.timeInterval.start), 'seconds')
+					}
+					return groups
+				},
+				lines: function() {
+					var lines = [];
+					lines.push("```");
 
-              lines.push(moment(this.date).format("dddd") + ":");
+					lines.push(moment(this.date).format("dddd") + ":");
 
-              Object.keys(this.groups).forEach(function(key) {
-                var seconds = app.groups[key];
-                if (seconds < 37) // less than 0.01
-                  return
-                var line = "- ";
-                line += "[";
-                line += +(Math.round((seconds / 60 / 60) + "e+2") + "e-2")
-                line += "] ";
-                line += key;
-                lines.push(line)
-              });
+					Object.keys(this.groups).forEach(function(key) {
+						var seconds = app.groups[key];
+						if (seconds < 37) // less than 0.01
+							return
+						var line = "- ";
+						line += "[";
+						line += +(Math.round((seconds / 60 / 60) + "e+2") + "e-2")
+						line += "] ";
+						line += key;
+						lines.push(line)
+					});
 
-              lines.push("");
-              lines.push(moment(this.nextDate()).format("dddd") + ":");
-              var todayLines = this.today.split("\n");
-              for (var i = 0; i < todayLines.length; i++) {
-                lines.push("- " + todayLines[i]);
-              }
-              lines.push("```");
-              return lines
-            },
-          },
-          components: {
-            vuejsDatepicker
-          },
-          created() {
-            this.initDate()
-            this.updateEntries()
-          }
-        })
-      }
-    }
+					lines.push("");
+					lines.push(moment(this.nextDate()).format("dddd") + ":");
+					var todayLines = this.today.split("\n");
+					for (var i = 0; i < todayLines.length; i++) {
+						lines.push("- " + todayLines[i]);
+					}
+					lines.push("```");
+					return lines
+				},
+			},
+			components: {
+				vuejsDatepicker
+			},
+			created() {
+				this.initDate()
+				this.updateEntries()
+				this.loadProjects()
+			}
+		})
+	}
+}
   </script>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/tachyons/4.11.1/tachyons.min.css" />
 </head>
